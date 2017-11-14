@@ -22,13 +22,16 @@ def eval_solution(out_file, n, p, tasks):
             proc_free_at = 0
             for _ in range(n_p):
                 i, si = map(int, f.readline().strip().split(","))
+
+               
+                
                 assert i not in started_at, "Task already scheduled!"
                 assert si >= proc_free_at, "Processor was not ready!"
                 started_at[i] = si
                 ended_at[i] = proc_free_at = si + tasks[i].di
                 cost += max(0, ended_at[i] - tasks[i].ti)
 
-    print(started_at)
+  
 
     for i, info in tasks.items():
         assert i in started_at, "All tasks need to be scheduled!"
@@ -54,4 +57,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    read_input_file("data")
+    #read_input_file("data")

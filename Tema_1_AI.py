@@ -1,6 +1,9 @@
 from copy import copy, deepcopy
 from itertools import combinations
 
+from argparse import ArgumentParser, Namespace
+
+
 
 def get_constraints(var, constraints):
     return list(filter(lambda x: var in x[0], constraints))
@@ -58,12 +61,21 @@ def check_constraint(solution, full_constraint):
 	else:
 		return False
 
-def PCSP(vars, domains, constraints, acceptable_cost, solution, cost, vars_index):
+
+def valid_value(val, solution):
+
+    for key in solution:
+	    for sarcina in solution[key]:
+                if sarcina[0] == val[0]:
+                    return False
+    return True
+
+def PCSP(vars, domains, constraints, acceptable_cost, solution, cost, vars_index, jobs_count):
     global best_solution
     global best_cost
+    global N
 
-    # Nu mai avem sarcini, deci am ajuns la o solutie mai buna
-    if not domains:# and check_solution(solution):
+    if jobs_count == N:
         
         print("New best: " + str(cost) + " - " + str(solution))
         
@@ -81,53 +93,24 @@ def PCSP(vars, domains, constraints, acceptable_cost, solution, cost, vars_index
 
     # Altfel
     else:
+
+        if vars_index == len(vars):
+               vars_index = 0
+
+        domain_len = len(domains)
         
-	if vars_index == len(vars):
-		vars_index = 0
-
- 	# Luam prima variabila si prima valoare
-        var = vars[vars_index]
-        val = domains.pop(0)
-
-	#test_val = val
-
-        new_solution = deepcopy(solution)
-
-        # Construim noua solutie
-        if var not in new_solution:
-		new_solution[var] = [(val[0], 0, val[1], val[2])]
-        else:
-		(sarcina, start_time, durata, timeout) = new_solution[var][-1]
-
-		new_solution[var].append((val[0], start_time + durata, val[1], val[2]))
-    
-        # Calculam costul noii solutii partiale
-        new_cost = cost
-        
-
-        # Luam restrictiile ce pot fi evaluate pentru solutia asta noua
-        new_constraints = fixed_constraints(new_solution, constraints)
-
-        for constr_key in new_constraints:
-            
-	    if check_constraint(new_solution, (constr_key, new_constraints[constr_key])) == False:
-		return False
-
-	(sarcina, start_time, durata, timeout) = new_solution[var][-1]
-	new_cost += max(0, start_time + durata - timeout) 
-	
-        # Daca noul cost este mai bun decat cel mai bun cost, mergem recursiv pe variabile
-        if new_cost < best_cost:
-            if PCSP(vars, deepcopy(domains), constraints, acceptable_cost, new_solution, new_cost, vars_index + 1):
-                return True
-
-	for i in xrange(1, len(domains)):
-
-		domains.insert(i, val)
+	for i in xrange(1, domain_len + 1):
 
 		var = vars[vars_index]
-		val = domains.pop(0)
 
+                val = domains[i - 1]
+
+                if i == domain_len + 1:
+                    val = domains[i - 2]
+
+                if valid_value(val, solution) == False:
+                    continue
+		
 		second_solution = deepcopy(solution)
 
 		# Construim noua solutie
@@ -139,18 +122,18 @@ def PCSP(vars, domains, constraints, acceptable_cost, solution, cost, vars_index
 			second_solution[var].append((val[0], start_time + durata, val[1], val[2]))
 
 		# Luam restrictiile ce pot fi evaluate pentru solutia asta noua
-	        new_constraints = fixed_constraints(new_solution, constraints)
+	        new_constraints = fixed_constraints(second_solution, constraints)
 
 		continue_set = False
 
 	        for constr_key in new_constraints:
-            
-		    if check_constraint(new_solution, (constr_key, new_constraints[constr_key])) == False:
-			continue_set = True
-			break
+		    if check_constraint(second_solution, (constr_key, new_constraints[constr_key])) == False:
+                        continue_set = True
+                	break
 
-		if continue_set == True:
-			continue
+                if continue_set == True:
+                    #print("Sarit continue")
+                    continue
 
 		new_cost2 = cost
 
@@ -158,9 +141,11 @@ def PCSP(vars, domains, constraints, acceptable_cost, solution, cost, vars_index
 		new_cost2 += max(0, start_time + durata - timeout)
 
 		if new_cost2 < best_cost:
-			result = PCSP(vars, deepcopy(domains), constraints, acceptable_cost, second_solution, new_cost2, vars_index + 1)
+			result = PCSP(vars, deepcopy(domains), constraints, acceptable_cost, second_solution, new_cost2, vars_index + 1, jobs_count + 1)
 			if result == True:
 				return True
+
+	return False
 
 def run_pcsp(acceptable_cost):
     global best_solution
@@ -171,7 +156,12 @@ def run_pcsp(acceptable_cost):
     domain = []
     constraints = {}
 
-    with open('input_file') as f:
+    arg_parser = ArgumentParser()
+    arg_parser.add_argument("in_file", help="Problem file")
+   
+    args = arg_parser.parse_args()
+
+    with open(args.in_file) as f:
 	    N, P = [int(x) for x in next(f).split(",")] # read first line
 	
 	    vars = [i for i in range(P)]
@@ -193,9 +183,9 @@ def run_pcsp(acceptable_cost):
     #print(constraints)
 
     best_solution = {}
-    best_cost = len(constraints)
+    best_cost = 100000
 
-    PCSP(vars, deepcopy(domain), constraints, acceptable_cost, {}, 0, 1)
+    PCSP(vars, deepcopy(domain), constraints, acceptable_cost, {}, 0, 1, 0)
     
     print("Best found: " + str(best_cost) + " - " + str(best_solution))
 
@@ -203,8 +193,8 @@ def run_pcsp(acceptable_cost):
     f = open('output_file', 'w')
 
     for key in best_solution.keys():
-	print(key)
-	f.write(str(key) + '\n')
+	
+	#f.write(str(key) + '\n')
 	f.write(str(len(best_solution[key])) + '\n')
 
 	for job in best_solution[key]:
@@ -212,4 +202,4 @@ def run_pcsp(acceptable_cost):
     
     f.close()
 
-run_pcsp(0)
+run_pcsp(100)
